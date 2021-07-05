@@ -76,9 +76,14 @@ class CancelOrderState(order_state.OrderState):
             self.order.canceled_time = self.order.exchange_manager.exchange.get_exchange_current_time()
 
             # update portfolio after close
-            async with self.order.exchange_manager.exchange_personal_data.get_order_portfolio(self.order).lock:
+            order_portfolio = self.order.exchange_manager.exchange_personal_data.get_order_portfolio(self.order)
+            if not order_portfolio.lock.locked():
+                async with order_portfolio.lock:
+                    await self.order.exchange_manager.exchange_personal_data.handle_portfolio_update_from_order(self.order,
+                                                                                                                    False)
+            else:
                 await self.order.exchange_manager.exchange_personal_data.handle_portfolio_update_from_order(self.order,
-                                                                                                            False)
+                                                                                                                False)
 
             # notify order filled
             await self.order.exchange_manager.exchange_personal_data.handle_order_update_notification(self.order,
